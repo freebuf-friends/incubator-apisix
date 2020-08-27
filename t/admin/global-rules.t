@@ -113,7 +113,100 @@ passed
 
 
 
-=== TEST 3: PATCH global rules
+=== TEST 3: list global rules
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/global_rules',
+                ngx.HTTP_GET,
+                nil,
+                [[{
+                    "node": {
+                        "dir": true,
+                        "nodes": [
+                        {
+                            "key": "/apisix/global_rules/1",
+                            "value": {
+                            "plugins": {
+                                "limit-count": {
+                                "time_window": 60,
+                                "policy": "local",
+                                "count": 2,
+                                "key": "remote_addr",
+                                "rejected_code": 503
+                                }
+                            }
+                            }
+                        }
+                        ],
+                        "key": "/apisix/global_rules"
+                    },
+                    "action": "get"
+                }]]
+                )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 4: PATCH global rules
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/global_rules/1',
+                ngx.HTTP_PATCH,
+                [[{
+                    "plugins": {
+                    "limit-count": {
+                        "count": 3,
+                        "time_window": 60,
+                        "rejected_code": 503,
+                        "key": "remote_addr"
+                    }
+                }}]],
+                [[{
+                    "node": {
+                        "value": {
+                            "plugins": {
+                                "limit-count": {
+                                    "count": 3,
+                                    "time_window": 60,
+                                    "rejected_code": 503,
+                                    "key": "remote_addr"
+                                }
+                            }
+                        },
+                        "key": "/apisix/global_rules/1"
+                    },
+                    "action": "set"
+                }]]
+                )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 5: PATCH global rules (sub path)
 --- config
     location /t {
         content_by_lua_block {
@@ -159,7 +252,7 @@ passed
 
 
 
-=== TEST 4: delete global rules
+=== TEST 6: delete global rules
 --- config
     location /t {
         content_by_lua_block {
@@ -183,7 +276,7 @@ GET /t
 
 
 
-=== TEST 5: delete global rules(not_found)
+=== TEST 7: delete global rules(not_found)
 --- config
     location /t {
         content_by_lua_block {
@@ -207,7 +300,7 @@ GET /t
 
 
 
-=== TEST 6: set global rules(invalid host option)
+=== TEST 8: set global rules(invalid host option)
 --- config
     location /t {
         content_by_lua_block {
@@ -241,7 +334,7 @@ GET /t
 
 
 
-=== TEST 7: set global rules(missing plugins)
+=== TEST 9: set global rules(missing plugins)
 --- config
     location /t {
         content_by_lua_block {
@@ -260,5 +353,61 @@ GET /t
 --- error_code: 400
 --- response_body
 {"error_msg":"invalid configuration: property \"plugins\" is required"}
+--- no_error_log
+[error]
+
+
+
+=== TEST 10: string id
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/global_rules/a-b-c-ABC_0123',
+                ngx.HTTP_PUT,
+                [[{
+                    "plugins": {
+                        "limit-count": {
+                            "count": 2,
+                            "time_window": 60,
+                            "rejected_code": 503,
+                            "key": "remote_addr"
+                        }
+                    }
+                }]]
+            )
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 11: string id(DELETE)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/global_rules/a-b-c-ABC_0123',
+                ngx.HTTP_DELETE
+            )
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
 --- no_error_log
 [error]

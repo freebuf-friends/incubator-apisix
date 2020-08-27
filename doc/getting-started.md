@@ -17,6 +17,8 @@
 #
 -->
 
+[Chinese](zh-cn/getting-started.md)
+
 # Quick Start Guide
 
 The goal of this guide is to get started with APISIX and to configure a secured public API with APISIX.
@@ -44,13 +46,13 @@ Let's deconstruct the above URL.
 ## Step 1: Install APISIX
 
 APISIX is available to install in multiple operating environments. The [following document](how-to-build.md#installation-via-source-release) shows the installation steps in multiple platforms.
-For the quick start let's use the docker based set up. To start the APISIX server, clone the following [repository](https://github.com/apache/incubator-apisix-docker) and navigate to the example folder and execute the following commands.
+For the quick start let's use the docker based set up. To start the APISIX server, clone the following [repository](https://github.com/apache/apisix-docker) and navigate to the example folder and execute the following commands.
 
 This command will start the APISIX server and the admin API will be available in 9080 port (HTTPS port: 9443).
 
 ```bash
-$ git clone https://github.com/apache/incubator-apisix-docker.git
-$ cd example
+$ git clone https://github.com/apache/apisix-docker.git
+$ cd apisix-docker/example
 $ docker-compose -p docker-apisix up -d
 ```
 
@@ -58,7 +60,7 @@ It will take a while to download the source for the first time. But the conseque
 After the docker containers have started visit the following link to check if you are getting a successful response.
 
 ```bash
-$ curl "http://127.0.0.1:9080/apisix/admin/services/"
+$ curl "http://127.0.0.1:9080/apisix/admin/services/" -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1'
 ```
 
 The following will be the response from the Admin API.
@@ -77,7 +79,7 @@ The following will be the response from the Admin API.
 
 ## Step 2: Create a Route in APISIX
 
-APISIX provides a powerful Admin API and a [dashboard](https://github.com/apache/incubator-apisix-dashboard) for configuring the routes/services/plugins.
+APISIX provides a powerful Admin API and a [dashboard](https://github.com/apache/apisix-dashboard) for configuring the routes/services/plugins.
 The quickstart guide will use the Admin API for configuring the routes.
 
 A micro-service can be configured via APISIX through the relationship between several entities such as routes, services, upstream, and plugins.
@@ -103,6 +105,7 @@ Technically all this information(upstream or service, plugins) can be included i
         ... Additional Configurations
     }
     ```
+
     With the above matching rule you can communicate to APISIX via the following command.
 
     ```bash
@@ -117,7 +120,6 @@ Technically all this information(upstream or service, plugins) can be included i
 
     When configuring a route you can either set the upstream information or use service abstraction to refer the upstream information.
 
-
 - Plugins
 
     Plugins allows you to extend the capabilities of APISIX and to implement arbitrary logic which can interface with the HTTP request/response lifecycle.
@@ -128,7 +130,7 @@ Technically all this information(upstream or service, plugins) can be included i
 Execute the following command to create an upstream with the id of '50' in APISIX. Let's use the round-robin mechanism for load balancing.
 
 ```bash
-curl "http://127.0.0.1:9080/apisix/admin/upstreams/50" -X PUT -d '
+curl "http://127.0.0.1:9080/apisix/admin/upstreams/50" -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "type": "roundrobin",
     "nodes": {
@@ -142,7 +144,7 @@ curl "http://127.0.0.1:9080/apisix/admin/upstreams/50" -X PUT -d '
 By default APISIX proxies the request via the HTTP protocol. As our backend is hosted in a HTTPS environment, let's use the proxy-rewrite plugin to change the scheme to HTTPS.
 
 ```bash
-curl "http://127.0.0.1:9080/apisix/admin/routes/5" -X PUT -d '
+curl "http://127.0.0.1:9080/apisix/admin/routes/5" -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "uri": "/get",
     "host": "httpbin.org",
@@ -177,7 +179,7 @@ Execute the following command to create a user called John with a dedicated api-
 Note: APISIX supports multiple authentication mechanism, view the plugin docs to learn more.
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/consumers -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/consumers -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "username": "john",
     "plugins": {
@@ -191,7 +193,7 @@ curl http://127.0.0.1:9080/apisix/admin/consumers -X PUT -d '
 Now, let's configure our endpoint to include the key-auth plugin.
 
 ```bash
-curl http://127.0.0.1:9080/apisix/admin/routes/5 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/5 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "uri": "/get",
     "host": "httpbin.org",
@@ -212,13 +214,48 @@ Use the command below to securely access the endpoint now.
 curl -i -X GET http://127.0.0.1:9080/get -H "Host: httpbin.org" -H 'apikey: superSecretAPIKey'
 ```
 
+## Add a prefix to the route
+
+Now lets say you want to add a prefix (eg: samplePrefix) to the route and do not want to use the `host` header then you can use
+the proxy rewrite plugin to do it.
+
+```bash
+curl http://127.0.0.1:9080/apisix/admin/routes/5 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "uri": "/samplePrefix/get",
+    "plugins": {
+        "proxy-rewrite": {
+          "scheme": "https",
+          "regex_uri": ["^/samplePrefix/get(.*)", "/get$1"]
+        },
+        "key-auth": {}
+    },
+    "upstream_id": 50
+}'
+```
+
+Now you can invoke the route with the following command:
+
+```bash
+curl -i -X GET http://127.0.0.1:9080/samplePrefix/get?param1=foo&param2=bar -H 'apikey: superSecretAPIKey'
+```
+
+## APISIX Dashboard
+
+As of now the API calls to the APISIX has been orchestrated by using the Admin API. However, APISIX also provides
+a web application to perform the similar. The dashboard is available in the following
+[repository](https://github.com/apache/apisix). The dashboard is intuitive and you can orchestrate the
+same route configurations via the dashboard as well.
+
+![Dashboard](images/dashboard.png)
+
 ### Troubleshooting
 
 - Make sure the required ports are not being used by other systems/processes (The default ports are: 9080, 9443, 2379).
 The following is the command to kill a process which is listening to a specific port (in unix based systems).
 
     ```bash
-    fuser -k 9443/tcp
+    sudo fuser -k 9443/tcp
     ```
 
 - If the docker container is continuously restarting/failing, login to the container and observe the logs to diagnose the issue.

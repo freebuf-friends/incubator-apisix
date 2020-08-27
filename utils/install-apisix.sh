@@ -21,7 +21,7 @@ set -ex
 
 OR_EXEC=`which openresty 2>&1`
 echo $OR_EXEC
-APISIX_VER="https://raw.githubusercontent.com/apache/incubator-apisix/master/rockspec/apisix-master-0.rockspec"
+APISIX_VER="https://raw.githubusercontent.com/apache/apisix/master/rockspec/apisix-master-0.rockspec"
 
 # check the openresty exist
 CHECK_OR_EXIST=`echo $OR_EXEC | grep ": no openresty" | wc -l`
@@ -42,24 +42,21 @@ echo $UNAME
 
 
 do_install() {
-    if [ "$UNAME" = "Darwin" ]; then
-        sudo luarocks install --lua-dir=$LUA_JIT_DIR $APISIX_VER --tree=/usr/local/apisix/deps --local
-
-    elif [ "$LUAROCKS_VER" = 'luarocks 3.' ]; then
+    if [ "$LUAROCKS_VER" = 'luarocks 3.' ]; then
         sudo luarocks install --lua-dir=$LUA_JIT_DIR $APISIX_VER --tree=/usr/local/apisix/deps --local
 
     else
         sudo luarocks install $APISIX_VER --tree=/usr/local/apisix/deps --local
     fi
 
-    sudo rm -f /usr/local/bin/apisix
-    sudo ln -s /usr/local/apisix/deps/bin/apisix /usr/local/bin/apisix
+    sudo rm -f /usr/bin/apisix
+    sudo ln -s /usr/local/apisix/deps/bin/apisix /usr/bin/apisix
 }
 
 
 do_remove() {
-    sudo rm -f /usr/local/bin/apisix
-    luarocks purge /usr/local/apisix/deps --tree=/usr/local/apisix/deps
+    sudo rm -f /usr/bin/apisix
+    sudo luarocks purge /usr/local/apisix/deps --tree=/usr/local/apisix/deps
 }
 
 

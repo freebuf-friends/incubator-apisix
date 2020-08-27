@@ -17,7 +17,7 @@
 #
 -->
 
-[Chinese](proxy-rewrite-cn.md)
+- [中文](../zh-cn/plugins/proxy-rewrite.md)
 
 # Summary
 - [**Name**](#name)
@@ -35,9 +35,8 @@ upstream proxy info rewrite plugin.
 |-------         |-----|------|
 |scheme          |optional| Upstream new `schema` forwarding protocol,options can be `http` or `https`,default `http`.|
 |uri             |optional| Upstream new `uri` forwarding address.|
-|regex_uri       |optional| Upstream new `uri` forwarding address. Use regular expression to match uri from client, when the match is successful, the uri template will be forwarded upstream. If the match is not successful, the uri from the client will be forwarded to the upstream. When `uri` and` regex_uri` are both exist, `uri` is used first. For example: [" ^/iresty/(.*)/(.*)/(.*)", "/$1-$2-$3"], the first element represents the matching regular expression and the second element represents the uri template that is forwarded to the upstream.|
+|regex_uri       |optional| Upstream new `uri` forwarding address. Use regular expression to match URL from client, when the match is successful, the URL template will be forwarded upstream. If the match is not successful, the URL from the client will be forwarded to the upstream. When `uri` and` regex_uri` are both exist, `uri` is used first. For example: [" ^/iresty/(.*)/(.*)/(.*)", "/$1-$2-$3"], the first element represents the matching regular expression and the second element represents the URL template that is forwarded to the upstream.|
 |host            |optional| Upstream new `host` forwarding address, example `iresty.com`. |
-|enable_websocket|optional| enable `websocket`(boolean), default `false`.|
 |headers         |optional| Forward to the new `headers` of the upstream, can set up multiple. If it exists, will rewrite the header, otherwise will add the header. You can set the corresponding value to an empty string to remove a header.|
 
 ## How To Enable
@@ -45,7 +44,7 @@ upstream proxy info rewrite plugin.
 Here's an example, enable the `proxy rewrite` plugin on the specified route:
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "methods": ["GET"],
     "uri": "/test/index.html",
@@ -54,7 +53,6 @@ curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
             "uri": "/test/home.html",
             "scheme": "http",
             "host": "iresty.com",
-            "enable_websocket": true,
             "headers": {
                 "X-Api-Version": "v1",
                 "X-Api-Engine": "apisix",
@@ -89,7 +87,7 @@ When you want to disable the `proxy rewrite` plugin, it is very simple,
  you can delete the corresponding json configuration in the plugin configuration,
   no need to restart the service, it will take effect immediately :
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "methods": ["GET"],
     "uri": "/test/index.html",

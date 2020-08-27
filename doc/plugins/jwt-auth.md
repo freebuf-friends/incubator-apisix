@@ -17,7 +17,7 @@
 #
 -->
 
-[Chinese](jwt-auth-cn.md)
+- [中文](../zh-cn/plugins/jwt-auth.md)
 
 # Summary
 - [**Name**](#name)
@@ -43,13 +43,14 @@ For more information on JWT, refer to [JWT](https://jwt.io/) for more informatio
 | secret      |optional|encryption key. if you do not specify, the value is auto-generated in the background.|
 | algorithm    |  optional|encryption algorithm. support`HS256`, `HS384`, `HS512`, `RS256` and `ES256`,`HS256` is default.|
 | exp          |optional|token's expire time, the unit is second. for example, 5 minutes, need to set the value of 300.( 5 * 60 = 300 )|
+| base64_secret|optional|boolean value to indicate whether secret is base64 encoded, default value is false.|
 
 ## How To Enable
 
 1. set a consumer and config the value of the `jwt-auth` option
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/consumers -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/consumers -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "username": "jack",
     "plugins": {
@@ -71,7 +72,7 @@ then add jwt-auth plugin in the Consumer page:
 2. add a Route or add a Service , and enable the `jwt-auth` plugin
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/1 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "methods": ["GET"],
     "uri": "/index.html",
@@ -92,7 +93,7 @@ curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
 #### get the token in `jwt-auth` plugin:
 
 ```shell
-$ curl http://127.0.0.2:9080/apisix/plugin/jwt/sign?key=user-key -i
+$ curl http://127.0.0.1:9080/apisix/plugin/jwt/sign?key=user-key -i
 HTTP/1.1 200 OK
 Date: Wed, 24 Jul 2019 10:33:31 GMT
 Content-Type: text/plain
@@ -108,7 +109,7 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDg
 * without token:
 
 ```shell
-$ curl http://127.0.0.2:9080/index.html -i
+$ curl http://127.0.0.1:9080/index.html -i
 HTTP/1.1 401 Unauthorized
 ...
 {"message":"Missing JWT token in request"}
@@ -117,7 +118,7 @@ HTTP/1.1 401 Unauthorized
 * request header with token:
 
 ```shell
-$ curl http://127.0.0.2:9080/index.html -H 'Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDgxMX0.Us8zh_4VjJXF-TmR5f8cif8mBU7SuefPlpxhH0jbPVI' -i
+$ curl http://127.0.0.1:9080/index.html -H 'Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDgxMX0.Us8zh_4VjJXF-TmR5f8cif8mBU7SuefPlpxhH0jbPVI' -i
 HTTP/1.1 200 OK
 Content-Type: text/html
 Content-Length: 13175
@@ -132,7 +133,7 @@ Accept-Ranges: bytes
 * request params with token:
 
 ```shell
-$ curl http://127.0.0.2:9080/index.html?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDgxMX0.Us8zh_4VjJXF-TmR5f8cif8mBU7SuefPlpxhH0jbPVI -i
+$ curl http://127.0.0.1:9080/index.html?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDgxMX0.Us8zh_4VjJXF-TmR5f8cif8mBU7SuefPlpxhH0jbPVI -i
 HTTP/1.1 200 OK
 Content-Type: text/html
 Content-Length: 13175
@@ -147,7 +148,7 @@ Accept-Ranges: bytes
 * request cookie with token:
 
 ```shell
-$ curl http://127.0.0.2:9080/index.html --cookie jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDgxMX0.Us8zh_4VjJXF-TmR5f8cif8mBU7SuefPlpxhH0jbPVI -i
+$ curl http://127.0.0.1:9080/index.html --cookie jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXkiOiJ1c2VyLWtleSIsImV4cCI6MTU2NDA1MDgxMX0.Us8zh_4VjJXF-TmR5f8cif8mBU7SuefPlpxhH0jbPVI -i
 HTTP/1.1 200 OK
 Content-Type: text/html
 Content-Length: 13175

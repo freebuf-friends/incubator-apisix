@@ -33,7 +33,7 @@ In addition, APISIX has dynamic routing and hot loading of plug-ins, which is es
 
 ## What's the performance of APISIX?
 
-One of the goals of APISIX design and development is the highest performance in the industry. Specific test data can be found here：[benchmark](https://github.com/apache/incubator-apisix/blob/master/doc/benchmark.md)
+One of the goals of APISIX design and development is the highest performance in the industry. Specific test data can be found here：[benchmark](https://github.com/apache/apisix/blob/master/doc/benchmark.md)
 
 APISIX is the highest performance API gateway with a single-core QPS of 23,000, with an average delay of only 0.6 milliseconds.
 
@@ -71,16 +71,16 @@ Run the `luarocks config rocks_servers` command(this command is supported after 
 
 If using a proxy doesn't solve this problem, you can add `--verbose` option during installation to see exactly how slow it is. Excluding the first case, only the second that the `git` protocol is blocked. Then we can run `git config --global url."https://".insteadOf git://` to using the 'HTTPS' protocol instead of `git`.
 
-## How to support A/B testing via APISIX?
+## How to support gray release via APISIX?
 
-An example, if you want to group by the request param `arg_id`：
+An example, `foo.com/product/index.html?id=204&page=2`, gray release based on `id` in the query string in URL as a condition：
 
-1. Group A：arg_id <= 1000
-2. Group B：arg_id > 1000
+1. Group A：id <= 1000
+2. Group B：id > 1000
 
-here is the way：
+here is the way:
 ```shell
-curl -i http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl -i http://127.0.0.1:9080/apisix/admin/routes/1 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "uri": "/index.html",
     "vars": [
@@ -93,7 +93,7 @@ curl -i http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
     }
 }'
 
-curl -i http://127.0.0.1:9080/apisix/admin/routes/2 -X PUT -d '
+curl -i http://127.0.0.1:9080/apisix/admin/routes/2 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "uri": "/index.html",
     "vars": [
@@ -107,5 +107,166 @@ curl -i http://127.0.0.1:9080/apisix/admin/routes/2 -X PUT -d '
 }'
 ```
 
+
 Here is the operator list of current `lua-resty-radixtree`：
 https://github.com/iresty/lua-resty-radixtree#operator-list
+
+## How to redirect http to https via APISIX?
+
+An example, redirect `http://foo.com` to `https://foo.com`
+
+There are several different ways to do this.
+1. Directly use the `http_to_https` in `redirect` plugin：
+```shell
+curl http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "uri": "/hello",
+    "host": "foo.com",
+    "plugins": {
+        "redirect": {
+            "http_to_https": true
+        }
+    }
+}'
+```
+
+2. Use with advanced routing rule `vars` with `redirect` plugin:
+
+```shell
+curl -i http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "uri": "/hello",
+    "host": "foo.com",
+    "vars": [
+        [
+            "scheme",
+            "==",
+            "http"
+        ]
+    ],
+    "plugins": {
+        "redirect": {
+            "uri": "https://$host$request_uri",
+            "ret_code": 301
+        }
+    }
+}'
+```
+
+3. `serverless` plugin：
+
+```shell
+curl -i http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "uri": "/hello",
+    "plugins": {
+        "serverless-pre-function": {
+            "phase": "rewrite",
+            "functions": ["return function() if ngx.var.scheme == \"http\" and ngx.var.host == \"foo.com\" then ngx.header[\"Location\"] = \"https://foo.com\" .. ngx.var.request_uri; ngx.exit(ngx.HTTP_MOVED_PERMANENTLY); end; end"]
+        }
+    }
+}'
+```
+
+Then test it to see if it works：
+```shell
+curl -i -H 'Host: foo.com' http://127.0.0.1:9080/hello
+```
+
+The response body should be:
+```
+HTTP/1.1 301 Moved Permanently
+Date: Mon, 18 May 2020 02:56:04 GMT
+Content-Type: text/html
+Content-Length: 166
+Connection: keep-alive
+Location: https://foo.com/hello
+Server: APISIX web server
+
+<html>
+<head><title>301 Moved Permanently</title></head>
+<body>
+<center><h1>301 Moved Permanently</h1></center>
+<hr><center>openresty</center>
+</body>
+</html>
+```
+
+
+## How to fix OpenResty Installation Failure on MacOS 10.15
+When you install the OpenResty on MacOs 10.15, you may face this error
+
+```shell
+> brew install openresty
+Updating Homebrew...
+==> Auto-updated Homebrew!
+Updated 1 tap (homebrew/cask).
+No changes to formulae.
+
+==> Installing openresty from openresty/brew
+Warning: A newer Command Line Tools release is available.
+Update them from Software Update in System Preferences or
+https://developer.apple.com/download/more/.
+
+==> Downloading https://openresty.org/download/openresty-1.15.8.2.tar.gz
+Already downloaded: /Users/wusheng/Library/Caches/Homebrew/downloads/4395089f0fd423261d4f1124b7beb0f69e1121e59d399e89eaa6e25b641333bc--openresty-1.15.8.2.tar.gz
+==> ./configure -j8 --prefix=/usr/local/Cellar/openresty/1.15.8.2 --pid-path=/usr/local/var/run/openresty.pid --lock-path=/usr/
+Last 15 lines from /Users/wusheng/Library/Logs/Homebrew/openresty/01.configure:
+DYNASM    host/buildvm_arch.h
+HOSTCC    host/buildvm.o
+HOSTLINK  host/buildvm
+BUILDVM   lj_vm.S
+BUILDVM   lj_ffdef.h
+BUILDVM   lj_bcdef.h
+BUILDVM   lj_folddef.h
+BUILDVM   lj_recdef.h
+BUILDVM   lj_libdef.h
+BUILDVM   jit/vmdef.lua
+make[1]: *** [lj_folddef.h] Segmentation fault: 11
+make[1]: *** Deleting file `lj_folddef.h'
+make[1]: *** Waiting for unfinished jobs....
+make: *** [default] Error 2
+ERROR: failed to run command: gmake -j8 TARGET_STRIP=@: CCDEBUG=-g XCFLAGS='-msse4.2 -DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT' CC=cc PREFIX=/usr/local/Cellar/openresty/1.15.8.2/luajit
+
+If reporting this issue please do so at (not Homebrew/brew or Homebrew/core):
+  https://github.com/openresty/homebrew-brew/issues
+
+These open issues may also help:
+Can't install openresty on macOS 10.15 https://github.com/openresty/homebrew-brew/issues/10
+The openresty-debug package should use openresty-openssl-debug instead https://github.com/openresty/homebrew-brew/issues/3
+Fails to install OpenResty https://github.com/openresty/homebrew-brew/issues/5
+
+Error: A newer Command Line Tools release is available.
+Update them from Software Update in System Preferences or
+https://developer.apple.com/download/more/.
+```
+
+This is an OS incompatible issue, you could fix by these two steps
+1. `brew edit openresty/brew/openresty`
+1. add `\ -fno-stack-check` in with-luajit-xcflags line.
+
+## How to change the log level?
+
+The default log level for APISIX is `warn`. However You can change the log level to `info` if you want to trace the messages print by `core.log.info`.
+
+Steps:
+
+1. Modify the parameter `error_log_level: "warn"` to `error_log_level: "info"` in conf/config.yaml
+
+2. Restart APISIX
+
+Now you can trace the info level log in logs/error.log.
+
+## How to reload your own plugin
+
+The Apache APISIX plugin supports hot reloading. If your APISIX node has the Admin API turned on, then for scenarios such as adding / deleting / modifying plugins, you can hot reload the plugin by calling the HTTP interface without restarting the service.
+
+```shell
+curl http://127.0.0.1:9080/apisix/admin/plugins/reload -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT
+```
+
+If your APISIX node does not open the Admin API, then you can manually load the plug-in by reloading APISIX.
+
+```shell
+apisix reload
+```

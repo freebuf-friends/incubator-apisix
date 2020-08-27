@@ -62,7 +62,7 @@ done
 --- request
 GET /t
 --- response_body
-property "username" validation failed: wrong type: expected string, got number
+value should match only one schema, but matches none
 done
 --- no_error_log
 [error]
@@ -194,5 +194,36 @@ GET /hello
 Authorization: Basic Zm9vOmJhcg==
 --- response_body
 hello world
+--- no_error_log
+[error]
+
+
+
+=== TEST 9: invalid schema, only one field `username`
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/consumers',
+                ngx.HTTP_PUT,
+                [[{
+                    "username": "foo",
+                    "plugins": {
+                        "basic-auth": {
+                            "username": "foo"
+                        }
+                    }
+                }]]
+                )
+
+            ngx.status = code
+            ngx.print(body)
+        }
+    }
+--- request
+GET /t
+--- error_code: 400
+--- response_body
+{"error_msg":"invalid plugins configuration: failed to check the configuration of plugin basic-auth err: value should match only one schema, but matches none"}
 --- no_error_log
 [error]

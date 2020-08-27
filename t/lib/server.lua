@@ -15,6 +15,7 @@
 -- limitations under the License.
 --
 local json_decode = require("cjson").decode
+local json_encode = require("cjson").encode
 
 local _M = {}
 
@@ -27,10 +28,16 @@ function _M.hello1()
     ngx.say("hello1 world")
 end
 
+function _M.hello_()
+    ngx.say("hello world")
+end
 
 function _M.server_port()
     ngx.print(ngx.var.server_port)
 end
+_M.server_port_route2 = _M.server_port
+_M.server_port_hello = _M.server_port
+_M.server_port_aa = _M.server_port
 
 
 function _M.limit_conn()
@@ -69,6 +76,8 @@ function _M.uri()
         ngx.say(k, ": ", v)
     end
 end
+_M.uri_plugin_proxy_rewrite = _M.uri
+_M.uri_plugin_proxy_rewrite_args = _M.uri
 
 function _M.old_uri()
     -- ngx.sleep(1)
@@ -84,7 +93,6 @@ function _M.opentracing()
     ngx.say("opentracing")
 end
 
-
 function _M.with_header()
     ngx.header['Content-Type'] = 'application/xml'
     ngx.header['X-Server-id'] = 100
@@ -92,6 +100,28 @@ function _M.with_header()
     ngx.say("hello")
     ngx.say("world")
     ngx.say("!")
+end
+
+function _M.mock_skywalking_v2_service_register()
+    ngx.say('[{"key":"APISIX","value":1}]')
+end
+
+function _M.mock_skywalking_v2_instance_register()
+    ngx.req.read_body()
+    local data = ngx.req.get_body_data()
+    data = json_decode(data)
+    local key = data['instances'][1]['instanceUUID']
+    local ret = {}
+    ret[1] = {key = key, value = 1}
+    ngx.say(json_encode(ret))
+end
+
+function _M.mock_skywalking_v2_instance_heartbeat()
+    ngx.say('skywalking heartbeat ok')
+end
+
+function _M.mock_skywalking_v2_segments()
+    ngx.say('skywalking segments ok')
 end
 
 function _M.mock_zipkin()
@@ -109,7 +139,95 @@ function _M.mock_zipkin()
         if not span.traceId then
             ngx.exit(400)
         end
+
+        if not span.localEndpoint then
+            ngx.exit(400)
+        end
+
+        if span.localEndpoint.serviceName ~= 'APISIX' and span.localEndpoint.serviceName ~= 'apisix' then
+            ngx.exit(400)
+        end
+
+        if span.localEndpoint.port ~= 1984 then
+            ngx.exit(400)
+        end
+
+        if span.localEndpoint.ipv4 ~= ngx.req.get_uri_args()['server_addr'] then
+            ngx.exit(400)
+        end
+
     end
+end
+
+function _M.wolf_rbac_login_rest()
+    ngx.req.read_body()
+    local data = ngx.req.get_body_data()
+    local args = json_decode(data)
+    if not args.username then
+        ngx.say(json_encode({ok=false, reason="ERR_USERNAME_MISSING"}))
+        ngx.exit(0)
+    end
+    if not args.password then
+        ngx.say(json_encode({ok=false, reason="ERR_PASSWORD_MISSING"}))
+        ngx.exit(0)
+    end
+    if args.username ~= "admin" then
+        ngx.say(json_encode({ok=false, reason="ERR_USER_NOT_FOUND"}))
+        ngx.exit(0)
+    end
+    if args.password ~= "123456" then
+        ngx.say(json_encode({ok=false, reason="ERR_PASSWORD_ERROR"}))
+        ngx.exit(0)
+    end
+
+    ngx.say(json_encode({ok=true, data={token="wolf-rbac-token",
+        userInfo={nickname="administrator",username="admin", id="100"}}}))
+end
+
+function _M.wolf_rbac_access_check()
+    local headers = ngx.req.get_headers()
+    local token = headers['x-rbac-token']
+    if token ~= 'wolf-rbac-token' then
+        ngx.say(json_encode({ok=false, reason="ERR_TOKEN_INVALID"}))
+        ngx.exit(0)
+    end
+
+    local args = ngx.req.get_uri_args()
+    local resName = args.resName
+    if resName == '/hello' or resName == '/wolf/rbac/custom/headers' then
+        ngx.say(json_encode({ok=true, data={ userInfo={nickname="administrator",username="admin", id="100"} }}))
+    else
+        ngx.status = 401
+        ngx.say(json_encode({ok=false, reason="no permission to access"}))
+    end
+end
+
+function _M.wolf_rbac_user_info()
+    local headers = ngx.req.get_headers()
+    local token = headers['x-rbac-token']
+    if token ~= 'wolf-rbac-token' then
+        ngx.say(json_encode({ok=false, reason="ERR_TOKEN_INVALID"}))
+        ngx.exit(0)
+    end
+
+    ngx.say(json_encode({ok=true, data={ userInfo={nickname="administrator", username="admin", id="100"} }}))
+end
+
+function _M.wolf_rbac_change_pwd()
+    ngx.req.read_body()
+    local data = ngx.req.get_body_data()
+    local args = json_decode(data)
+    if args.oldPassword ~= "123456" then
+        ngx.say(json_encode({ok=false, reason="ERR_OLD_PASSWORD_INCORRECT"}))
+        ngx.exit(0)
+    end
+
+    ngx.say(json_encode({ok=true, data={ }}))
+end
+
+function _M.wolf_rbac_custom_headers()
+    local headers = ngx.req.get_headers()
+    ngx.say('id:' .. headers['X-UserId'] .. ',username:' .. headers['X-Username'] .. ',nickname:' .. headers['X-Nickname'])
 end
 
 function _M.websocket_handshake()
@@ -120,15 +238,11 @@ function _M.websocket_handshake()
         return ngx.exit(400)
     end
 end
-
+_M.websocket_handshake_route = _M.websocket_handshake
 
 function _M.go()
     local action = string.sub(ngx.var.uri, 2)
-    local find = string.find(action, "/", 1, true)
-    if find then
-        action = string.sub(action, 1, find - 1)
-    end
-
+    action = string.gsub(action, "[/\\.]", "_")
     if not action or not _M[action] then
         return ngx.exit(404)
     end
@@ -136,5 +250,14 @@ function _M.go()
     return _M[action]()
 end
 
+function _M.headers()
+    local args = ngx.req.get_uri_args()
+    for name, val in pairs(args) do
+        ngx.header[name] = nil
+        ngx.header[name] = val
+    end
+
+    ngx.say("/headers")
+end
 
 return _M

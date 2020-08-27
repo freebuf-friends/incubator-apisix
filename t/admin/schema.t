@@ -93,9 +93,23 @@ location /t {
                     sni = {
                         type = "string",
                         pattern = [[^\*?[0-9a-zA-Z-.]+$]],
-                    }
+                    },
+                    snis = {
+                        type = "array",
+                        items = {
+                            type = "string",
+                            pattern = [[^\*?[0-9a-zA-Z-.]+$]],
+                        }
+                    },
+                    exptime = {
+                        type = "integer",
+                        minimum = 1588262400,  -- 2020/5/1 0:0:0
+                    },
                 },
-                required = {"sni", "key", "cert"},
+                oneOf = {
+                    {required = {"sni", "key", "cert"}},
+                    {required = {"snis", "key", "cert"}}
+                },
                 additionalProperties = false,
             }
             )
@@ -117,7 +131,7 @@ passed
 --- request
 GET /apisix/admin/schema/plugins/limit-count
 --- response_body eval
-qr/"required":\["count","time_window","key","rejected_code"]/
+qr/"required":\["count","time_window","key"\]/
 --- no_error_log
 [error]
 
@@ -207,5 +221,25 @@ location /t {
 GET /t
 --- response_body
 passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 11: get plugin udp-logger schema
+--- request
+GET /apisix/admin/schema/plugins/udp-logger
+--- response_body  eval
+qr/{"properties":/
+--- no_error_log
+[error]
+
+
+
+=== TEST 12: get plugin grpc-transcode schema
+--- request
+GET /apisix/admin/schema/plugins/grpc-transcode
+--- response_body eval
+qr/"proto_id".*additionalProperties/
 --- no_error_log
 [error]

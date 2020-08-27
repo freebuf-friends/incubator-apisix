@@ -54,8 +54,8 @@ else
 fi
 
 # lua: VERSION = $ver
-matched=`grep "VERSION = \"[0-9][0-9.]*\"" -r lua/`
-expected=`grep -F "VERSION = \"$ver\"" -r lua/`
+matched=`grep "VERSION = \"[0-9][0-9.]*\"" -r apisix/`
+expected=`grep -F "VERSION = \"$ver\"" -r apisix/`
 
 if [ "$matched" = "$expected" ]; then
     echo -e "${green}passed: (lua) VERSION = $ver ${NC}"
@@ -65,4 +65,18 @@ else
     echo "-----maybe wrong version-----"
     echo "$matched"
     exit 1
+fi
+
+
+# rockspec
+matched=`ls -l rockspec/ | grep  "$ver" `
+
+if [ -z "$matched" ]; then
+    echo -e "${RED}failed: (rockspec) VERSION = $ver \"$ver\" ${NC}" 1>&2
+    echo
+    echo "-----please check rockspec file for VERSION \"$ver\"-----"
+    echo "$matched"
+    exit 1
+else
+    echo -e "${green}passed: (rockspec) VERSION = $ver ${NC}"
 fi
